@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>CdR</title>
+    <meta name="viewport" content="initial-scale=1.0">
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" />
+    <style>
+        /* Always set the map height explicitly to define the size of the div
+       * element that contains the map. */
+        #map {
+            height: 100%;
+        }
+
+        /* Optional: Makes the sample page fill the window. */
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+
+    <div class="modal fade" id="login-modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+            <div class="modal-content px-3">
+                <form id="form-login-modal">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Login</h5>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <input type="email" class="form-control" name="email" placeholder="Enter email" required>
+                        </div>
+                        <div class="form-group">
+                            <input type="password" class="form-control" name="password" placeholder="Password" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-success btn-sm">Logar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="about-modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">About</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body p-3">
+                    <blockquote class="blockquote">
+                        <p class="mb-0">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer posuere erat a
+                            ante.</p>
+                        <footer class="blockquote-footer">Someone famous in <cite title="Source Title">Source
+                                Title</cite></footer>
+                    </blockquote>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+
+    <script defer src="https://www.gstatic.com/firebasejs/5.10.0/firebase-app.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/5.10.0/firebase-auth.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/5.10.0/firebase-database.js"></script>
+
+    <script defer
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAi5-WfFeAyq3M6Mjpz0kLfLvcyBCtqYqg&callback=init"></script>
+
+    <script src="./addControlMap.js"></script>
+
+    <script>
+        var mapInstance;
+        var mapCoords;
+        var mapCoordsMarker;
+        var firebaseInstance;
+        function init() {
+            mapInstance = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: -34.397, lng: 150.644 },
+                zoom: 15
+            });
+
+            mapCoords = new google.maps.Polyline({
+                path: [],
+                geodesic: true,
+                strokeColor: '#FF0000',
+                strokeOpacity: 1.0,
+                strokeWeight: 2
+            });
+
+            mapCoordsMarker = new google.maps.Marker({
+                position: mapInstance.getCenter(),
+                icon: 'https://img.icons8.com/color/30/000000/bus.png',
+                draggable: false,
+                map: mapInstance
+            });
+
+            addControlMap(
+                mapInstance,
+                "Logout",
+                () => firebaseInstance
+                    .auth()
+                    .signOut()
+                    .catch(error => alert(error.message))
+            );
+
+            addControlMap(
+                mapInstance,
+                "About the Project",
+                () => $("#about-modal").modal('show')
+            );
+
+            var config = {
+                apiKey: "AIzaSyAi5-WfFeAyq3M6Mjpz0kLfLvcyBCtqYqg",
+                authDomain: "controlederotas-962e8.firebaseapp.com",
+                databaseURL: "https://controlederotas-962e8.firebaseio.com",
+                projectId: "controlederotas-962e8",
+                storageBucket: "controlederotas-962e8.appspot.com",
+                messagingSenderId: "1042883548008"
+            };
+            firebaseInstance = firebase
+                .initializeApp(config);
+
+            firebaseInstance
+                .auth()
+                .onAuthStateChanged(user => {
+                    if (user) {
+                        firebaseInstance
+                            .database()
+                            .ref('coords')
+                            .on('value', snapshot => {
+                                mapCoords.setMap(null);
+
+                                let coords = snapshot.val();
+                                if (coords) {
+                                    let lastCoord = coords[coords.length - 1];
+                                    mapCoordsMarker.setPosition(lastCoord);
+                                    mapInstance.setCenter(lastCoord);
+
+                                    mapCoords.setPath(coords);
+                                    mapCoords.setMap(mapInstance);
+                                }
+                            });
+
+                        $("#login-modal")
+                            .modal('hide');
+                    } else {
+                        mapCoords.setMap(null);
+
+                        firebaseInstance
+                            .database()
+                            .ref('coords')
+                            .off('value');
+
+                        $("#login-modal input[name=password]")
+                            .val('');
+
+                        $("#login-modal")
+                            .modal({
+                                backdrop: 'static',
+                                keyboard: false
+                            });
+                    }
+                });
+
+
+
+            $("#form-login-modal")
+                .on('submit', e => {
+                    e.preventDefault();
+
+                    let [email, password] = $(e.target)
+                        .serializeArray()
+                        .map(el => el.value);
+
+
+                    $("#login-modal button[type=submit]")
+                        .attr('disabled', true);
+
+                    firebaseInstance
+                        .auth()
+                        .signInWithEmailAndPassword(email, password)
+                        .then(() => {
+                            $("#login-modal button[type=submit]")
+                                .attr('disabled', false);
+                        })
+                        .catch(error => {
+                            alert(error.message);
+                            $("#login-modal button[type=submit]")
+                                .attr('disabled', false);
+                        });
+                });
+        }
+
+    </script>
+</body>
+
+</html>
