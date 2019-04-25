@@ -107,7 +107,8 @@
                 position: mapInstance.getCenter(),
                 icon: 'https://img.icons8.com/color/30/000000/bus.png',
                 draggable: false,
-                map: mapInstance
+                map: mapInstance,
+                visible: false
             });
 
             addControlMap(
@@ -145,6 +146,7 @@
                             .ref('coords')
                             .on('value', snapshot => {
                                 mapCoords.setMap(null);
+                                mapCoordsMarker.setVisible(false);
 
                                 let coords = snapshot.val();
                                 if (coords) {
@@ -152,6 +154,7 @@
                                     mapCoordsMarker.setPosition(lastCoord);
                                     mapInstance.setCenter(lastCoord);
 
+                                    mapCoordsMarker.setVisible(true);
                                     mapCoords.setPath(coords);
                                     mapCoords.setMap(mapInstance);
                                 }
